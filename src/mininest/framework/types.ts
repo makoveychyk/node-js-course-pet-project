@@ -36,8 +36,14 @@ export interface PipeContext {
   metatype?: Constructor;
 }
 
-export type PipeToken = PipeTransform | Constructor<PipeTransform> | PipeFunction;
-export type PipeFunction = (value: any, metadata: PipeContext) => any | Promise<any>;
+export type PipeToken =
+  | PipeTransform
+  | Constructor<PipeTransform>
+  | PipeFunction;
+export type PipeFunction = (
+  value: any,
+  metadata: PipeContext,
+) => any | Promise<any>;
 
 export interface Guard {
   canActivate(context: ExecutionContext): boolean | Promise<boolean>;
