@@ -21,7 +21,7 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
-    "allowImportingTsExtensions": true,
-    "emitDeclarationOnly": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   }
 }
