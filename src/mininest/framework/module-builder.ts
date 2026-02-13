@@ -28,7 +28,10 @@ export class ModuleBuilder {
     return this.loadModule(moduleClass, this.rootContainer);
   }
 
-  private loadModule(moduleClass: Constructor, parentContainer: Container): ModuleRef {
+  private loadModule(
+    moduleClass: Constructor,
+    parentContainer: Container,
+  ): ModuleRef {
     if (this.moduleRefs.has(moduleClass)) {
       return this.moduleRefs.get(moduleClass)!;
     }
@@ -46,8 +49,12 @@ export class ModuleBuilder {
     this.moduleRefs.set(moduleClass, moduleRef);
 
     this.registerProvider(container, moduleClass);
-    metadata.providers?.forEach((provider) => this.registerProvider(container, provider));
-    metadata.controllers?.forEach((controller) => this.registerProvider(container, controller));
+    metadata.providers?.forEach((provider) =>
+      this.registerProvider(container, provider),
+    );
+    metadata.controllers?.forEach((controller) =>
+      this.registerProvider(container, controller),
+    );
 
     const imports = (metadata.imports ?? []).map((importedModule) =>
       this.loadModule(importedModule, container),
@@ -87,6 +94,8 @@ export function collectControllers(
       module: moduleRef,
     })) ?? [];
 
-  const nested = moduleRef.imports.flatMap((imported) => collectControllers(imported, visited));
+  const nested = moduleRef.imports.flatMap((imported) =>
+    collectControllers(imported, visited),
+  );
   return [...controllers, ...nested];
 }

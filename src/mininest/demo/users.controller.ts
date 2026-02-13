@@ -61,7 +61,8 @@ export class UsersController {
   @UseGuard(ApiKeyGuard)
   @UseInterceptor(TimingInterceptor)
   create(
-    @Body(undefined, new ZodValidationPipe(createUserSchema)) body: {
+    @Body(undefined, new ZodValidationPipe(createUserSchema))
+    body: {
       name: string;
       email: string;
     },
@@ -74,7 +75,8 @@ export class UsersController {
   @UseInterceptor(TimingInterceptor)
   update(
     @Param('id', ParseIntPipe, PositiveNumberPipe) id: number,
-    @Body(undefined, new ZodValidationPipe(updateUserSchema)) body: {
+    @Body(undefined, new ZodValidationPipe(updateUserSchema))
+    body: {
       name: string;
       email: string;
     },
@@ -87,7 +89,8 @@ export class UsersController {
   @UseInterceptor(TimingInterceptor)
   patch(
     @Param('id', ParseIntPipe, PositiveNumberPipe) id: number,
-    @Body(undefined, new ZodValidationPipe(patchUserSchema)) body: {
+    @Body(undefined, new ZodValidationPipe(patchUserSchema))
+    body: {
       name?: string;
       email?: string;
     },

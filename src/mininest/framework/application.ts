@@ -21,7 +21,11 @@ import {
   Constructor,
   RouteDefinition,
 } from './types.ts';
-import { HttpException, InternalServerError, ForbiddenError } from './exceptions.ts';
+import {
+  HttpException,
+  InternalServerError,
+  ForbiddenError,
+} from './exceptions.ts';
 
 interface CompiledRoute extends RouteDefinition {
   regex: RegExp;
@@ -43,14 +47,21 @@ interface CompiledRoute extends RouteDefinition {
   methodFilters: FilterToken[];
 }
 
-const isPipeConstructor = (pipe: PipeToken): pipe is Constructor<PipeTransform> =>
-  typeof pipe === 'function' && Boolean(pipe.prototype) && typeof pipe.prototype.transform === 'function';
+const isPipeConstructor = (
+  pipe: PipeToken,
+): pipe is Constructor<PipeTransform> =>
+  typeof pipe === 'function' &&
+  Boolean(pipe.prototype) &&
+  typeof pipe.prototype.transform === 'function';
 
 const isPipeFunction = (pipe: PipeToken): pipe is PipeFunction =>
-  typeof pipe === 'function' && (!pipe.prototype || typeof pipe.prototype.transform !== 'function');
+  typeof pipe === 'function' &&
+  (!pipe.prototype || typeof pipe.prototype.transform !== 'function');
 
 const isPipeInstance = (pipe: PipeToken): pipe is PipeTransform =>
-  typeof pipe === 'object' && pipe !== null && typeof (pipe as PipeTransform).transform === 'function';
+  typeof pipe === 'object' &&
+  pipe !== null &&
+  typeof pipe.transform === 'function';
 
 export class MiniNestApplication {
   private server = createServer(this.handleRequest.bind(this));
@@ -99,21 +110,28 @@ export class MiniNestApplication {
   private initializeRoutes() {
     const controllers = collectControllers(this.rootModule);
     controllers.forEach((controllerRef) => {
-      const controllerInstance = controllerRef.container.resolve(controllerRef.metatype);
+      const controllerInstance = controllerRef.container.resolve(
+        controllerRef.metatype,
+      );
       this.controllerInstances.set(controllerRef, controllerInstance);
 
       const controllerMeta =
-        Reflect.getMetadata(MetadataKeys.CONTROLLER, controllerRef.metatype) ?? {};
+        Reflect.getMetadata(MetadataKeys.CONTROLLER, controllerRef.metatype) ??
+        {};
       const prefix = formatPath(controllerMeta.prefix ?? '');
-      const routes =
-        (Reflect.getMetadata(MetadataKeys.ROUTES, controllerRef.metatype) ??
-          []) as RouteDefinition[];
+      const routes = (Reflect.getMetadata(
+        MetadataKeys.ROUTES,
+        controllerRef.metatype,
+      ) ?? []) as RouteDefinition[];
       const controllerPipes =
         Reflect.getMetadata(MetadataKeys.PIPES, controllerRef.metatype) ?? [];
       const controllerGuards =
         Reflect.getMetadata(MetadataKeys.GUARDS, controllerRef.metatype) ?? [];
       const controllerInterceptors =
-        Reflect.getMetadata(MetadataKeys.INTERCEPTORS, controllerRef.metatype) ?? [];
+        Reflect.getMetadata(
+          MetadataKeys.INTERCEPTORS,
+          controllerRef.metatype,
+        ) ?? [];
       const controllerFilters =
         Reflect.getMetadata(MetadataKeys.FILTERS, controllerRef.metatype) ?? [];
 
@@ -122,22 +140,51 @@ export class MiniNestApplication {
         const compiledPath = compilePath(fullPath);
         const proto = controllerRef.metatype.prototype;
         const paramMetadataList: ParamMetadata[] =
-          Reflect.getMetadata(MetadataKeys.PARAMS, proto, routeMeta.propertyKey) ?? [];
+          Reflect.getMetadata(
+            MetadataKeys.PARAMS,
+            proto,
+            routeMeta.propertyKey,
+          ) ?? [];
         const paramMetadata = new Map<number, ParamMetadata>();
-        paramMetadataList.forEach((meta) => paramMetadata.set(meta.index, meta));
+        paramMetadataList.forEach((meta) =>
+          paramMetadata.set(meta.index, meta),
+        );
         const paramPipes =
-          Reflect.getMetadata(MetadataKeys.PARAM_PIPES, proto, routeMeta.propertyKey) ??
-          new Map();
+          Reflect.getMetadata(
+            MetadataKeys.PARAM_PIPES,
+            proto,
+            routeMeta.propertyKey,
+          ) ?? new Map();
         const paramTypes =
-          Reflect.getMetadata('design:paramtypes', proto, routeMeta.propertyKey) ?? [];
+          Reflect.getMetadata(
+            'design:paramtypes',
+            proto,
+            routeMeta.propertyKey,
+          ) ?? [];
         const methodPipes =
-          Reflect.getMetadata(MetadataKeys.PIPES, proto, routeMeta.propertyKey) ?? [];
+          Reflect.getMetadata(
+            MetadataKeys.PIPES,
+            proto,
+            routeMeta.propertyKey,
+          ) ?? [];
         const methodGuards =
-          Reflect.getMetadata(MetadataKeys.GUARDS, proto, routeMeta.propertyKey) ?? [];
+          Reflect.getMetadata(
+            MetadataKeys.GUARDS,
+            proto,
+            routeMeta.propertyKey,
+          ) ?? [];
         const methodInterceptors =
-          Reflect.getMetadata(MetadataKeys.INTERCEPTORS, proto, routeMeta.propertyKey) ?? [];
+          Reflect.getMetadata(
+            MetadataKeys.INTERCEPTORS,
+            proto,
+            routeMeta.propertyKey,
+          ) ?? [];
         const methodFilters =
-          Reflect.getMetadata(MetadataKeys.FILTERS, proto, routeMeta.propertyKey) ?? [];
+          Reflect.getMetadata(
+            MetadataKeys.FILTERS,
+            proto,
+            routeMeta.propertyKey,
+          ) ?? [];
 
         this.routes.push({
           method: routeMeta.method,
@@ -146,7 +193,7 @@ export class MiniNestApplication {
           keys: compiledPath.keys,
           handlerName: String(routeMeta.propertyKey),
           propertyKey: routeMeta.propertyKey,
-           controller: controllerRef.metatype,
+          controller: controllerRef.metatype,
           controllerRef,
           controllerInstance,
           controllerPipes,
@@ -176,7 +223,10 @@ export class MiniNestApplication {
         this.reply(res, { statusCode: 200, body: { message: 'Hello World!' } });
         return;
       }
-      this.reply(res, { statusCode: 404, body: { message: 'Route not found' } });
+      this.reply(res, {
+        statusCode: 404,
+        body: { message: 'Route not found' },
+      });
       return;
     }
 
@@ -227,7 +277,10 @@ export class MiniNestApplication {
     return params;
   }
 
-  private async resolveArguments(route: CompiledRoute, context: ExecutionContext) {
+  private async resolveArguments(
+    route: CompiledRoute,
+    context: ExecutionContext,
+  ) {
     const args: any[] = [];
     const maxIndex = route.paramTypes.length;
     for (let index = 0; index < maxIndex; index += 1) {
@@ -275,7 +328,11 @@ export class MiniNestApplication {
   }
 
   private async runGuards(route: CompiledRoute, context: ExecutionContext) {
-    const guards = [...this.globalGuards, ...route.controllerGuards, ...route.methodGuards];
+    const guards = [
+      ...this.globalGuards,
+      ...route.controllerGuards,
+      ...route.methodGuards,
+    ];
     for (const guard of guards) {
       const instance = this.resolveGuard(guard, route.controllerRef.container);
       const result =
@@ -309,9 +366,7 @@ export class MiniNestApplication {
         route.controllerRef.container,
       );
       if (typeof interceptor === 'function') {
-        return Promise.resolve(
-          interceptor(context, () => dispatch(index + 1)),
-        );
+        return Promise.resolve(interceptor(context, () => dispatch(index + 1)));
       }
       return interceptor.intercept(context, () => dispatch(index + 1));
     };
@@ -344,13 +399,20 @@ export class MiniNestApplication {
   }
 
   private resolveGuard(guard: GuardToken, container: Container) {
-    if (typeof guard === 'function' && guard.prototype && guard.prototype.canActivate) {
+    if (
+      typeof guard === 'function' &&
+      guard.prototype &&
+      guard.prototype.canActivate
+    ) {
       return container.resolve(guard as any);
     }
     return guard;
   }
 
-  private resolveInterceptor(interceptor: InterceptorToken, container: Container) {
+  private resolveInterceptor(
+    interceptor: InterceptorToken,
+    container: Container,
+  ) {
     if (
       typeof interceptor === 'function' &&
       interceptor.prototype &&
@@ -361,7 +423,11 @@ export class MiniNestApplication {
     return interceptor;
   }
 
-  private async handleError(error: unknown, route: CompiledRoute, context: ExecutionContext) {
+  private async handleError(
+    error: unknown,
+    route: CompiledRoute,
+    context: ExecutionContext,
+  ) {
     const filters = [
       ...this.globalFilters,
       ...route.controllerFilters,
@@ -369,7 +435,12 @@ export class MiniNestApplication {
     ];
 
     for (const filter of filters) {
-      const handled = await this.invokeFilter(filter, error, context, route.controllerRef.container);
+      const handled = await this.invokeFilter(
+        filter,
+        error,
+        context,
+        route.controllerRef.container,
+      );
       if (handled) {
         return;
       }
@@ -397,7 +468,11 @@ export class MiniNestApplication {
     container: Container,
   ) {
     let instance: any = filter;
-    if (typeof filter === 'function' && filter.prototype && filter.prototype.catch) {
+    if (
+      typeof filter === 'function' &&
+      filter.prototype &&
+      filter.prototype.catch
+    ) {
       instance = container.resolve(filter as any);
     }
 
@@ -475,10 +550,7 @@ function formatPath(path: string) {
   if (!path) {
     return '';
   }
-  return path
-    .split('/')
-    .filter(Boolean)
-    .join('/');
+  return path.split('/').filter(Boolean).join('/');
 }
 
 function compilePath(path: string) {

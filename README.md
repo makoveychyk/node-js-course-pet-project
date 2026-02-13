@@ -198,4 +198,10 @@ Nest is an MIT-licensed open source project. It can grow thanks to the sponsors 
 
 ## License
 
+## Homework 05 deliverables
+
+- Transactional, idempotent `createOrder` implementation with pessimistic locking lives in `src/orders`.
+- Oversell mitigation, concurrency notes, and SQL plans are documented under `docs/`.
+- Detailed notes for the assignment are in `docs/homework05.md`.
+
 Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).

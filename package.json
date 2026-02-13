@@ -13,7 +13,14 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "mini-nest": "node --loader ts-node/esm src/mininest/main.ts",
-    "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix"
+    "lint": "eslint \"{src,apps,libs}/**/*.ts\" --fix",
+    "db:generate": "typeorm-ts-node-commonjs -d data-source.ts migration:generate",
+    "db:migrate": "typeorm-ts-node-commonjs -d data-source.ts migration:run",
+    "db:revert": "typeorm-ts-node-commonjs -d data-source.ts migration:revert",
+    "db:seed": "ts-node -r tsconfig-paths/register src/seed/seed.ts",
+    "migration:run": "npm run db:migrate",
+    "seed": "npm run db:seed",
+    "concurrency:test": "ts-node -r tsconfig-paths/register scripts/concurrency-test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -22,7 +29,11 @@
     "@nestjs/platform-express": "^11.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@nestjs/typeorm": "^11.0.0",
+    "dotenv": "^16.4.5",
+    "pg": "^8.16.3",
+    "typeorm": "^0.3.20"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

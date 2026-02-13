@@ -22,7 +22,10 @@ export function Inject(token?: Token): ParameterDecorator {
   return (target, _propertyKey, parameterIndex) => {
     const existing: Map<number, Token> =
       Reflect.getMetadata(MetadataKeys.INJECT_TOKENS, target) ?? new Map();
-    existing.set(parameterIndex, token ?? Reflect.getMetadata('design:paramtypes', target)[parameterIndex]);
+    existing.set(
+      parameterIndex,
+      token ?? Reflect.getMetadata('design:paramtypes', target)[parameterIndex],
+    );
     Reflect.defineMetadata(MetadataKeys.INJECT_TOKENS, existing, target);
   };
 }
@@ -44,8 +47,10 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 function createRouteDecorator(method: HttpMethod) {
   return (path = ''): MethodDecorator => {
     return (target, propertyKey) => {
-      const routes =
-        (Reflect.getMetadata(MetadataKeys.ROUTES, target.constructor) ?? []) as any[];
+      const routes = (Reflect.getMetadata(
+        MetadataKeys.ROUTES,
+        target.constructor,
+      ) ?? []) as any[];
       routes.push({ method, path, propertyKey });
       Reflect.defineMetadata(MetadataKeys.ROUTES, routes, target.constructor);
     };
@@ -104,23 +109,13 @@ export function UsePipe(...pipes: PipeToken[]) {
       );
       return;
     }
-    pushClassOrMethodMetadata(
-      MetadataKeys.PIPES,
-      pipes,
-      target,
-      propertyKey as string | symbol | undefined,
-    );
+    pushClassOrMethodMetadata(MetadataKeys.PIPES, pipes, target, propertyKey);
   };
 }
 
 export function UseGuard(...guards: GuardToken[]) {
   return (target: object, propertyKey?: string | symbol) => {
-    pushClassOrMethodMetadata(
-      MetadataKeys.GUARDS,
-      guards,
-      target,
-      propertyKey as string | symbol | undefined,
-    );
+    pushClassOrMethodMetadata(MetadataKeys.GUARDS, guards, target, propertyKey);
   };
 }
 
@@ -130,7 +125,7 @@ export function UseInterceptor(...interceptors: InterceptorToken[]) {
       MetadataKeys.INTERCEPTORS,
       interceptors,
       target,
-      propertyKey as string | symbol | undefined,
+      propertyKey,
     );
   };
 }
@@ -141,7 +136,7 @@ export function UseFilter(...filters: FilterToken[]) {
       MetadataKeys.FILTERS,
       filters,
       target,
-      propertyKey as string | symbol | undefined,
+      propertyKey,
     );
   };
 }
@@ -151,7 +146,9 @@ type ParamDecoratorFactory = (
   ...pipes: PipeToken[]
 ) => ParameterDecorator;
 
-function createParamDecorator(type: ParamMetadata['type']): ParamDecoratorFactory {
+function createParamDecorator(
+  type: ParamMetadata['type'],
+): ParamDecoratorFactory {
   return (data?: string, ...pipes: PipeToken[]) => {
     return (target, propertyKey, parameterIndex) => {
       const params: ParamMetadata[] =
