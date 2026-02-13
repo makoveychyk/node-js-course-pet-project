@@ -138,6 +138,46 @@ affecting existing domains.
 
 Reference: https://docs.nestjs.com/architecture
 
+## GraphQL Integration
+
+GraphQL is powered by `@nestjs/graphql` with the Apollo driver and configured in `src/graphql/graphql.module.ts` to expose `/graphql` along with Apollo's landing page explorer. The project uses the **code-first** approach because the domain already relies on strongly typed entities and DTOs; generating the schema from decorators keeps the GraphQL contract aligned with TypeScript types, removes the need to manually sync `.graphql` files, and lets us reuse enums and validation logic from the existing modules without duplication. A minimal smoke query (`hello`) lives in `src/hello.resolver.ts`, so the landing page can be used immediately to verify the setup.
+
+### Pagination format
+
+The `orders` query intentionally returns a minimal `[Order!]!` list and relies on `limit/offset` arguments. The UI consumes offset-based pagination from the existing REST API, so reusing the same contract keeps both transports aligned and avoids building an unnecessary GraphQL connection wrapper until the product requires richer metadata (e.g., totalCount or cursors).
+
+### N+1 investigation
+
+Щоб зафіксувати класичний N+1 перед додаванням DataLoader, у `src/app.module.ts` тимчасово ввімкнув `logging: true` для TypeORM і виконав у Apollo Explorer запит:
+
+```graphql
+query {
+  orders(pagination: { limit: 2 }) {
+    id
+    items {
+      quantity
+      product {
+        id
+        title
+      }
+    }
+  }
+}
+```
+
+У консолі з’явилися послідовні SQL‑рядки на кшталт:
+
+```
+query: SELECT ... FROM "order_items" WHERE "order_id" = $1
+query: SELECT ... FROM "products" WHERE "products"."id" = $1
+query: SELECT ... FROM "products" WHERE "products"."id" = $2
+query: SELECT ... FROM "products" WHERE "products"."id" = $3
+```
+
+Тобто для кожного `OrderItem` виконувався окремий запит до `products`. Після підключення `ProductLoaderFactory` та використання `context.loaders.productById` ці рядки зникли, а замість них з’явився єдиний IN-запит, що підтвердило усунення N+1.
+
+**До / після**: до DataLoader ті самі 2 замовлення генерували `1 + N` запитів до `products` (по одному на кожен `OrderItem`). Після ввімкнення DataLoader у логах залишився лише один батч-запит `SELECT ... FROM "products" WHERE "products"."id" IN (...)`. Це показує, що lookup-и продуктів тепер групуються та кешуються в межах GraphQL-запиту.
+
 ## Project setup
 
 ```bash
