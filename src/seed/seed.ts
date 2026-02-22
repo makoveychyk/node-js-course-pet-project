@@ -1,15 +1,31 @@
 import 'dotenv/config';
 import { In } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { AppDataSource } from '../../data-source';
 import { User } from '../users/user.entity';
 import { Product } from '../products/product.entity';
 import { Order } from '../orders/order.entity';
 import { OrderItem } from '../orders/order-item.entity';
 
-const usersSeed = [
-  { email: 'alice@example.com' },
-  { email: 'bob@example.com' },
-  { email: 'charlie@example.com' },
+const usersSeedConfig = [
+  {
+    email: 'alice@example.com',
+    password: 'password123',
+    roles: ['user'],
+    scopes: ['files:read', 'files:write', 'orders:read'],
+  },
+  {
+    email: 'bob@example.com',
+    password: 'password123',
+    roles: ['support'],
+    scopes: ['files:read', 'files:write', 'orders:read'],
+  },
+  {
+    email: 'charlie@example.com',
+    password: 'password123',
+    roles: ['admin'],
+    scopes: ['files:read', 'files:write', 'orders:read', 'orders:write'],
+  },
 ];
 
 const productNames = [
@@ -101,11 +117,20 @@ async function seed() {
     const ordersRepository = dataSource.getRepository(Order);
     const orderItemsRepository = dataSource.getRepository(OrderItem);
 
+    const usersSeed = await Promise.all(
+      usersSeedConfig.map(async (user) => ({
+        email: user.email,
+        passwordHash: await bcrypt.hash(user.password, 10),
+        roles: user.roles,
+        scopes: user.scopes,
+      })),
+    );
+
     await usersRepository.upsert(usersSeed, ['email']);
     await productsRepository.upsert(productsSeed, ['title']);
 
     const users = await usersRepository.find({
-      where: { email: In(usersSeed.map((user) => user.email)) },
+      where: { email: In(usersSeedConfig.map((user) => user.email)) },
     });
     const usersByEmail = new Map<string, User>(
       users.map((user) => [user.email, user]),

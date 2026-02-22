@@ -8,6 +8,8 @@ import { GraphqlModule } from './graphql/graphql.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HelloResolver } from './hello.resolver';
+import { FilesModule } from './files/files.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { HelloResolver } from './hello.resolver';
     ProductsModule,
     OrdersModule,
     GraphqlModule,
+    FilesModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService, HelloResolver],
