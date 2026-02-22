@@ -31,6 +31,10 @@ export type ListOrdersInput = {
   offset: number;
 };
 
+export type ListOrdersOptions = {
+  includeItemsProduct?: boolean;
+};
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -206,15 +210,25 @@ export class OrdersService {
     return typeof code === 'string' && code === '23505';
   }
 
-  async listOrders(input: ListOrdersInput): Promise<Order[]> {
+  async listOrders(
+    input: ListOrdersInput,
+    options?: ListOrdersOptions,
+  ): Promise<Order[]> {
+    const includeItemsProduct = options?.includeItemsProduct ?? true;
+
     const qb = this.ordersRepository
       .createQueryBuilder('orders')
       .leftJoinAndSelect('orders.items', 'items')
-      .leftJoinAndSelect('items.product', 'product')
       .leftJoinAndSelect('orders.user', 'user')
       .orderBy('orders.createdAt', 'DESC')
       .take(input.limit)
       .skip(input.offset);
+
+    if (includeItemsProduct) {
+      qb.leftJoinAndSelect('items.product', 'product');
+    } else {
+      qb.leftJoin('items.product', 'product');
+    }
 
     if (input.userId) {
       qb.andWhere('orders.userId = :userId', { userId: input.userId });
