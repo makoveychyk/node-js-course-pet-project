@@ -148,7 +148,7 @@ The `orders` query intentionally returns a minimal `[Order!]!` list and relies o
 
 ### N+1 investigation
 
-Щоб зафіксувати класичний N+1 перед додаванням DataLoader, у `src/app.module.ts` тимчасово ввімкнув `logging: true` для TypeORM і виконав у Apollo Explorer запит:
+To capture the classic N+1 footprint before adding DataLoader, I temporarily enabled `logging: true` for TypeORM in `src/app.module.ts` and ran the following query in Apollo Explorer:
 
 ```graphql
 query {
@@ -165,7 +165,7 @@ query {
 }
 ```
 
-У консолі з’явилися послідовні SQL‑рядки на кшталт:
+The console printed sequential SQL statements such as:
 
 ```
 query: SELECT ... FROM "order_items" WHERE "order_id" = $1
@@ -174,9 +174,9 @@ query: SELECT ... FROM "products" WHERE "products"."id" = $2
 query: SELECT ... FROM "products" WHERE "products"."id" = $3
 ```
 
-Тобто для кожного `OrderItem` виконувався окремий запит до `products`. Після підключення `ProductLoaderFactory` та використання `context.loaders.productById` ці рядки зникли, а замість них з’явився єдиний IN-запит, що підтвердило усунення N+1.
+That meant every `OrderItem` triggered its own lookup against `products`. After wiring up `ProductLoaderFactory` and using `context.loaders.productById`, those lines disappeared and were replaced with a single IN query, proving the N+1 issue was removed.
 
-**До / після**: до DataLoader ті самі 2 замовлення генерували `1 + N` запитів до `products` (по одному на кожен `OrderItem`). Після ввімкнення DataLoader у логах залишився лише один батч-запит `SELECT ... FROM "products" WHERE "products"."id" IN (...)`. Це показує, що lookup-и продуктів тепер групуються та кешуються в межах GraphQL-запиту.
+**Before / after:** prior to DataLoader the same two orders produced `1 + N` queries to `products` (one per `OrderItem`). With DataLoader enabled, the logs show only one batched query `SELECT ... FROM "products" WHERE "products"."id" IN (...)`, confirming that product lookups are now grouped and cached within a GraphQL request.
 
 ## Project setup
 
@@ -198,6 +198,19 @@ $ npm run start:prod
 ```
 
 ## Run tests
+
+## File storage flow
+
+- **Integrated domain:** user avatar (`users/{userId}/avatars/...`).
+- **Presign → Upload → Complete:**\
+  1. `POST /files/presign` (`Authorization: Bearer <token>`) — backend verifies ownership from the JWT, generates the key/`FileRecord` with `pending` status, and returns `uploadUrl` for a direct `PUT` into S3.\
+  2. Client performs `PUT uploadUrl` with the same `Content-Type`.\
+  3. `POST /files/complete` — backend ensures the file belongs to the caller, flips the status to `ready`, and links it to `User.avatarFileId`.
+- **Metadata:** the `file_records` table stores `ownerId`, `entityId`, `key`, `contentType`, `size`, `status`, `visibility`, and timestamps.
+- **Access controls:** JWT scopes guard the endpoints (`files:write` for presign/complete, `files:read` for lookup); keys are server-generated, and ownership is enforced before any action.
+- **Viewing URL:** if `CLOUDFRONT_BASE_URL` is set, the final URL uses it; otherwise a private S3 HTTPS link is returned.
+- **Storage security:** the bucket stays non-public; uploads are only possible via presigned URLs with limited TTL, and attachments are restricted to the owner.
+- **Authentication:** `POST /auth/login` (seed users use `password123`) returns a JWT; use `Authorization: Bearer <token>` for `/files/*` calls.
 
 ```bash
 # unit tests
