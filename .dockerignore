@@ -1,0 +1,25 @@
+# Node / Nest artifacts
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store
+
+# Build outputs
+/dist
+/.turbo
+coverage
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Git / IDE
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+
+# Docker helper files stay in context for documentation
