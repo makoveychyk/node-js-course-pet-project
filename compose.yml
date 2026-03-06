@@ -1,0 +1,88 @@
+name: nodejs-course-stack
+services:
+  api:
+    build:
+      context: .
+      target: prod-distroless
+    image: nodejs-course-api:prod-distroless
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:3000"
+    networks:
+      - internal
+      - public
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-lesson9_files_module}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - internal
+
+  migrate:
+    build:
+      context: .
+      target: dev
+    command: ["pnpm", "migration:run"]
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    profiles:
+      - tools
+
+  seed:
+    build:
+      context: .
+      target: dev
+    command: ["pnpm", "seed"]
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - internal
+    profiles:
+      - tools
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+    internal: true
+  public:
+    driver: bridge

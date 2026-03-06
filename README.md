@@ -32,6 +32,76 @@ This project is a backend API for a **future online store** as a pet project in 
 [NestJS](https://nestjs.com/), a progressive Node.js framework for building
 efficient, scalable server-side applications.
 
+## Containerization Deliverables
+
+### File map
+
+- `.dockerignore` strips sources, git metadata, and local env files from the build context.
+- `Dockerfile` is multi-stage with explicit `dev`, `build`, `prod`, and `prod-distroless` targets. `dev` includes TypeScript sources and devDependencies for hot reload/jobs, `build` compiles the app, `prod` is a minimal Node 22 runtime running as the `node` user, and `prod-distroless` copies only `dist/` plus production dependencies into `gcr.io/distroless/nodejs20-debian12:nonroot`.
+- `compose.yml` (prod-like) wires `api`, `postgres`, `migrate`, and `seed` on a private `internal` network with a single public port (8080) exposed by the API. `postgres` never publishes a host port and persists data in `pgdata`.
+- `compose.dev.yml` overrides `api/migrate/seed` to use the `dev` image, bind-mount the source tree, and keep `node_modules` + the pnpm store on anonymous volumes for fast hot reload.
+- `.env.example` now lists every variable consumed by Nest, GraphQL, TypeORM, and AWS clients so secrets can be filled without committing `.env`.
+
+### Environment bootstrap
+
+```bash
+cp .env.example .env
+# fill DB credentials, JWT/AWS secrets, etc.
+```
+
+`compose.yml` passes `.env` into every service but overrides `DB_HOST=postgres` so containers always talk over the internal network.
+
+### Compose commands (from project root)
+
+```bash
+# prod-like API + Postgres (distroless runtime)
+docker compose -f compose.yml up --build
+
+# dev stack with hot reload + bind mount
+docker compose -f compose.yml -f compose.dev.yml up --build
+
+# one-off jobs (profiles keep them out of default up)
+COMPOSE_PROFILES=tools docker compose run --rm migrate
+COMPOSE_PROFILES=tools docker compose run --rm seed
+```
+
+`seed` depends on `migrate` (`condition: service_completed_successfully`) so running the seed job automatically waits for migrations. Both job containers reuse the `dev` target, which ships `ts-node`, TypeORM CLI, and the TypeScript sources.
+
+### Runtime topology
+
+- `api` joins `internal` + `public` networks, exposes `localhost:8080 -> 3000`, and depends on the Postgres health check.
+- `postgres` is private (`internal` network only) and keeps `pgdata:/var/lib/postgresql/data`.
+- `migrate` & `seed` live under the optional `tools` profile and share the same environment (so CI/CD or K8s jobs can re-use them as independent `docker compose run` steps).
+- Dev override mounts `.:/usr/src/app`, masks `node_modules` with a named volume, and caches pnpm’s store to keep rebuilds in milliseconds.
+
+### Image verification
+
+```
+$ docker image ls nodejs-course-api
+IMAGE                               ID             SIZE
+nodejs-course-api:dev               cab18ff250a5   1.29GB
+nodejs-course-api:prod              3af3c6101ec2   1.23GB
+nodejs-course-api:prod-distroless   4d8feda07341    217MB
+
+$ docker history nodejs-course-api:prod-distroless | head -n 7
+IMAGE          CREATED        CREATED BY                              SIZE
+4d8feda07341   14 seconds ago CMD ["dist/main.js"]                    0B
+<missing>      14 seconds ago COPY dist ./dist                        521kB
+<missing>      14 seconds ago COPY node_modules ./node_modules        84.2MB
+<missing>      14 seconds ago FROM gcr.io/distroless/nodejs20...      97.7MB
+```
+
+`docker history nodejs-course-api:prod-distroless` shows the final layers are only the copied `dist/` files (≈521 kB) plus `node_modules` (≈84 MB) on top of the distroless base, so the attack surface is much smaller than the full Debian-based dev/prod stages.
+
+### Non-root proof
+
+```
+$ docker run --rm --entrypoint /nodejs/bin/node nodejs-course-api:prod-distroless -e 'console.log(process.getuid())'
+65532
+```
+
+Both `prod` and `prod-distroless` run without root (`USER node` and distroless `nonroot` respectively); the command above prints the UID provided by Google’s distroless `nonroot` base image.
+
 The project is initialized and structured strictly according to the **official
 NestJS documentation**, with a strong focus on long-term scalability and clean
 architecture.
@@ -148,7 +218,7 @@ The `orders` query intentionally returns a minimal `[Order!]!` list and relies o
 
 ### N+1 investigation
 
-Щоб зафіксувати класичний N+1 перед додаванням DataLoader, у `src/app.module.ts` тимчасово ввімкнув `logging: true` для TypeORM і виконав у Apollo Explorer запит:
+To capture the classic N+1 problem before wiring in DataLoader, I temporarily enabled `logging: true` for TypeORM in `src/app.module.ts` and ran the following query in Apollo Explorer:
 
 ```graphql
 query {
@@ -165,7 +235,7 @@ query {
 }
 ```
 
-У консолі з’явилися послідовні SQL‑рядки на кшталт:
+The console produced sequential SQL statements such as:
 
 ```
 query: SELECT ... FROM "order_items" WHERE "order_id" = $1
@@ -174,9 +244,9 @@ query: SELECT ... FROM "products" WHERE "products"."id" = $2
 query: SELECT ... FROM "products" WHERE "products"."id" = $3
 ```
 
-Тобто для кожного `OrderItem` виконувався окремий запит до `products`. Після підключення `ProductLoaderFactory` та використання `context.loaders.productById` ці рядки зникли, а замість них з’явився єдиний IN-запит, що підтвердило усунення N+1.
+That meant every `OrderItem` triggered its own query to `products`. After adding `ProductLoaderFactory` and reading products via `context.loaders.productById`, those per-item statements disappeared and were replaced by a single IN query, proving the N+1 issue was eliminated.
 
-**До / після**: до DataLoader ті самі 2 замовлення генерували `1 + N` запитів до `products` (по одному на кожен `OrderItem`). Після ввімкнення DataLoader у логах залишився лише один батч-запит `SELECT ... FROM "products" WHERE "products"."id" IN (...)`. Це показує, що lookup-и продуктів тепер групуються та кешуються в межах GraphQL-запиту.
+**Before / after**: prior to DataLoader, the same two orders emitted `1 + N` queries to `products` (one per `OrderItem`). With DataLoader enabled the logs contain only one batched `SELECT ... FROM "products" WHERE "products"."id" IN (...)`, which shows the lookups are now grouped and cached for the duration of the GraphQL request.
 
 ## Project setup
 

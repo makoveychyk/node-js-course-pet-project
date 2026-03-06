@@ -1,0 +1,46 @@
+services:
+  api:
+    build:
+      context: .
+      target: dev
+    image: nodejs-course-api:dev
+    command: ["pnpm", "start:dev"]
+    volumes:
+      - .:/usr/src/app
+      - api_node_modules:/usr/src/app/node_modules
+      - pnpm-store:/root/.local/share/pnpm/store
+    environment:
+      NODE_ENV: development
+      CHOKIDAR_USEPOLLING: "1"
+
+  migrate:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/usr/src/app
+      - api_node_modules:/usr/src/app/node_modules
+      - pnpm-store:/root/.local/share/pnpm/store
+    command: ["pnpm", "migration:run"]
+    environment:
+      NODE_ENV: development
+    profiles:
+      - tools
+
+  seed:
+    build:
+      context: .
+      target: dev
+    volumes:
+      - .:/usr/src/app
+      - api_node_modules:/usr/src/app/node_modules
+      - pnpm-store:/root/.local/share/pnpm/store
+    command: ["pnpm", "seed"]
+    environment:
+      NODE_ENV: development
+    profiles:
+      - tools
+
+volumes:
+  api_node_modules:
+  pnpm-store:
